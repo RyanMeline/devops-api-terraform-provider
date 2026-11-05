@@ -20,34 +20,9 @@ type Engineer struct {
 	Email string `json:"email"`
 }
 
-// GetEngineers fetches the full list of engineers from the devops API.
-func (c *Client) GetEngineers() ([]Engineer, error) {
-	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/engineers", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status: %d, body: %s", resp.StatusCode, body)
-	}
-
-	var engineers []Engineer
-	if err := json.NewDecoder(resp.Body).Decode(&engineers); err != nil {
-		return nil, err
-	}
-
-	return engineers, nil
-}
-
-// CreateEngineer POSTs a new engineer and returns the engineer as created by
-// the API, including the server-generated ID.
+// CREATE engineer.
+// (POST /engineers)
+// (ID is automatically created by the API and returned in the response)
 func (c *Client) CreateEngineer(engineer Engineer) (*Engineer, error) {
 	engineerJSON, err := json.Marshal(engineer)
 	if err != nil {
@@ -82,6 +57,68 @@ func (c *Client) CreateEngineer(engineer Engineer) (*Engineer, error) {
 	return &created, nil
 }
 
+// READ engineers.
+// (GET /engineers)
+func (c *Client) GetEngineers() ([]Engineer, error) {
+	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/engineers", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("status: %d, body: %s", resp.StatusCode, body)
+	}
+
+	var engineers []Engineer
+	if err := json.NewDecoder(resp.Body).Decode(&engineers); err != nil {
+		return nil, err
+	}
+
+	return engineers, nil
+}
+
+// UPDATE engineer.
+// (PUT /engineers/{id})
+func (c *Client) UpdateEngineer(engineer Engineer) (*Engineer, error) {
+	engineerJSON, err := json.Marshal(engineer)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, c.BaseURL+"/engineers/"+engineer.ID, bytes.NewReader(engineerJSON))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("status: %d, body: %s", resp.StatusCode, body)
+	}
+
+	var updated Engineer
+	if err := json.NewDecoder(resp.Body).Decode(&updated); err != nil {
+		return nil, fmt.Errorf("decoding update response: %w", err)
+	}
+
+	return &updated, nil
+}
+
+// DELETE engineer.
+// (DELETE /engineers/{id})
 func (c *Client) DeleteEngineer(id string) error {
 	req, err := http.NewRequest(http.MethodDelete, c.BaseURL+"/engineers/"+id, nil)
 	if err != nil {
