@@ -172,4 +172,25 @@ func (r *engineerResource) Update(ctx context.Context, req resource.UpdateReques
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *engineerResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state engineerResourceModel
+
+	// Read Terraform prior state data into the model
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Delete the engineer using the API client
+	err := r.client.DeleteEngineer(state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting engineer",
+			fmt.Sprintf("Could not delete engineer, unexpected error: %s", err.Error()),
+		)
+		return
+	}
+
+	// Remove resource from state
+	resp.State.RemoveResource(ctx)
 }

@@ -81,3 +81,23 @@ func (c *Client) CreateEngineer(engineer Engineer) (*Engineer, error) {
 
 	return &created, nil
 }
+
+func (c *Client) DeleteEngineer(id string) error {
+	req, err := http.NewRequest(http.MethodDelete, c.BaseURL+"/engineers/"+id, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status: %d, body: %s", resp.StatusCode, body)
+	}
+
+	return nil
+}
