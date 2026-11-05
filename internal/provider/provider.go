@@ -6,11 +6,13 @@ package provider
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -31,13 +33,20 @@ type ScaffoldingProvider struct {
 	version string
 }
 
-// ScaffoldingProviderModel describes the provider data model.
-type ScaffoldingProviderModel struct {
+// DevOpsAPIProviderModel describes the provider data model.
+type DevOpsAPIProviderModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
 }
 
+type Client struct {
+	// Add fields for your client configuration here.
+	// For example, if your provider needs to connect to an API, you might include:
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
 func (p *ScaffoldingProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+	resp.TypeName = "devops"
 	resp.Version = p.version
 }
 
@@ -53,50 +62,72 @@ func (p *ScaffoldingProvider) Schema(ctx context.Context, req provider.SchemaReq
 }
 
 func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ScaffoldingProviderModel
-
-	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-
+	var config DevOpsAPIProviderModel
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
+	//Reject values that aren't known until apply
+	if config.Endpoint.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint"),
+			"Unknown DevOps API Endpoint",
+			"The endpoint must be known at plan time. Set it statically or use DEVOPS_API_ENDPOINT.",
+		)
+		return
+	}
 
-	// Example client configuration for data sources and resources
-	client := http.DefaultClient
+	//Use the env var, then the config value, then the default
+	endpoint := os.Getenv("DEVOPS_API_ENDPOINT")
+	if !config.Endpoint.IsNull() {
+		endpoint = config.Endpoint.ValueString()
+	}
+	if endpoint == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint"),
+			"Missing DevOps API Endpoint",
+			"The provider cannot create the DevOps API client as there is a missing or empty value for the DevOps API endpoint. "+
+				"Set the endpoint value in the configuration or use the DEVOPS_API_ENDPOINT environment variable. "+
+				"If either is already set, ensure the value is not empty.",
+		)
+
+	}
+
+	//Build the client and hand it to resources and data sources
+	client := &Client{BaseURL: endpoint, HTTPClient: http.DefaultClient}
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
 
 func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewEngineerResource,
 	}
 }
 
 func (p *ScaffoldingProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
 	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
+		// NewExampleEphemeralResource,
 	}
 }
 
 func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
+		NewEngineersDataSource,
 	}
 }
 
 func (p *ScaffoldingProvider) Functions(ctx context.Context) []func() function.Function {
 	return []func() function.Function{
-		NewExampleFunction,
+		// NewExampleFunction,
 	}
 }
 
 func (p *ScaffoldingProvider) Actions(ctx context.Context) []func() action.Action {
 	return []func() action.Action{
-		NewExampleAction,
+		// NewExampleAction,
 	}
 }
 
