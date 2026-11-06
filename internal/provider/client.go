@@ -131,7 +131,7 @@ func (c *Client) DeleteEngineer(id string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("status: %d, body: %s", resp.StatusCode, body)
 	}
