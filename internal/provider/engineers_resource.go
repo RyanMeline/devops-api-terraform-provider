@@ -168,6 +168,38 @@ func (r *engineerResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *engineerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan engineerResourceModel
+
+	// Read Terraform plan data into the model
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update the engineer using the API client
+	updated, err := r.client.UpdateEngineer(Engineer{
+		ID:    plan.ID.ValueString(),
+		Name:  plan.Name.ValueString(),
+		Email: plan.Email.ValueString(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating engineer",
+			fmt.Sprintf("Could not update engineer, unexpected error: %s", err.Error()),
+		)
+		return
+	}
+
+	plan.Name = types.StringValue(updated.Name)
+	plan.Email = types.StringValue(updated.Email)
+
+	// Set state to fully populated data
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
